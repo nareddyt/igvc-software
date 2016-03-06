@@ -46,8 +46,8 @@ void PotholeDetector::img_callback(const sensor_msgs::ImageConstPtr& msg) {
     double blueImageAverage = 0;
     double greenImageAverage = 0;
     double redImageAverage = 0;
-    for (int i = 0; i <= src.cols; i++) {
-        for (int j = 0; j <= src.rows; j++) {
+    for (int i = 0; i < src.cols; i++) {
+        for (int j = 0; j < src.rows; j++) {
             Vec3b currentPixel = src.at<Vec3b>(j, i);
             blueImageAverage += currentPixel[0];
             greenImageAverage += currentPixel[1];
