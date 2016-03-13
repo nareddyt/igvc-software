@@ -15,9 +15,11 @@ cv_bridge::CvImagePtr cv_ptr;
 typedef pcl::PointCloud<pcl::PointXYZ> PCLCloud;
 
 // Offsets for red and blue flag detections
-const int redOffset = 160;
-const int blueOffset = 140;
-const int blockSize = 3;
+const int redDiff = 180;
+const int blueDiff = 140;
+const int blockSize = 5;
+const int blueOffset = 30;
+const int redOffset = 140;
 
 double toRadians(double degrees) {
     return degrees / 180.0 * M_PI;
@@ -35,29 +37,45 @@ void FlagDetector::img_callback(const sensor_msgs::ImageConstPtr& msg) {
 
     vector<Point> redFlagPoints;
     vector<Point> blueFlagPoints;
-
+    cerr << "hi" << endl;
+    // Average red and blue values
+    int redAvg = 0;
+    int blueAvg = 0;
+    for (int i = 0; i < src.rows; i++) {
+        for (int j = 0; j < src.cols; j++) {
+            Vec3b currentPixel = src.at<Vec3b>(i, j);
+            redAvg += currentPixel[2];
+            blueAvg += currentPixel[0];
+        }
+    }
+    redAvg /= src.rows * src.cols;
+    blueAvg /= src.rows * src.cols;
+    cerr << to_string(redAvg) << endl;
+    cerr << to_string(blueAvg) << endl;
     // Determine which points corresponds to red / blue flags.
+
     for (int i = 0; i < src.cols; i += blockSize) {
         for (int j = 0; j < src.rows; j += blockSize) {
-            int redAvg = 0;
-            int blueAvg = 0;
-            int greenAvg = 0;
+            int redSquareAvg = 0;
+            int blueSquareAvg = 0;
+            int greenSquareAvg = 0;
             for (int k = i; k < i + blockSize && k < src.cols; k++) {
                 for (int l = j; l < j + blockSize && j < src.rows; l++) {
                     Vec3b currentPixel = src.at<Vec3b>(l, k);
-                    blueAvg += currentPixel[0];
-                    greenAvg += currentPixel[1];
-                    redAvg += currentPixel[2];
+                    blueSquareAvg += currentPixel[0];
+                    greenSquareAvg += currentPixel[1];
+                    redSquareAvg += currentPixel[2];
                 }
             }
-            redAvg /= blockSize * blockSize;
-            blueAvg /= blockSize * blockSize;
-            greenAvg /= blockSize * blockSize;
+            redSquareAvg /= blockSize * blockSize;
+            blueSquareAvg /= blockSize * blockSize;
+            greenSquareAvg /= blockSize * blockSize;
 
-            if (blueAvg - blueOffset > greenAvg && blueAvg - blueOffset > redAvg) {
+            if (blueSquareAvg - blueDiff > greenSquareAvg && blueSquareAvg - blueDiff > redSquareAvg && blueSquareAvg - blueAvg > blueOffset) {
                 for (int k = i; k < i + blockSize && k < src.cols; k++) {
                     for (int l = j; l < j + blockSize && j < src.rows; l++) {
                         blueFlagPoints.push_back(Point(k, l));
+                        cerr << to_string(redSquareAvg) + " " + to_string(greenSquareAvg) + " " + to_string(blueSquareAvg) << endl;
                         Vec3b currentPixel = src.at<Vec3b>(l, k);
                         currentPixel[0] = 0;
                         currentPixel[1] = 0;
@@ -65,10 +83,11 @@ void FlagDetector::img_callback(const sensor_msgs::ImageConstPtr& msg) {
                         src.at<Vec3b>(l, k) = currentPixel;
                     }
                 }
-            } else if (redAvg - redOffset > blueAvg && redAvg - redOffset > greenAvg) {
+            } else if (redSquareAvg - redDiff > blueSquareAvg && redSquareAvg - redDiff > greenSquareAvg && redSquareAvg - redAvg > redOffset) {
                 for (int k = i; k < i + blockSize && k < src.cols; k++) {
                     for (int l = j; l < j + blockSize && j < src.rows; l++) {
                         redFlagPoints.push_back(Point(k, l));
+                        cerr << to_string(redSquareAvg) + " " + to_string(greenSquareAvg) + " " + to_string(blueSquareAvg) << endl;
                         Vec3b currentPixel = src.at<Vec3b>(l, k);
                         currentPixel[0] = 255;
                         currentPixel[1] = 255;
