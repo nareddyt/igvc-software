@@ -6,6 +6,7 @@
 #include <math.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
+#include <cstdint>
 
 using namespace std;
 using namespace cv;
@@ -15,11 +16,8 @@ cv_bridge::CvImagePtr cv_ptr;
 typedef pcl::PointCloud<pcl::PointXYZ> PCLCloud;
 
 // Offsets for red and blue flag detections
-const int redDiff = 180;
-const int blueDiff = 140;
-const int blockSize = 5;
-const int blueOffset = 30;
-const int redOffset = 140;
+const int redDiff = 50;
+const int blueDiff = 100;
 
 double toRadians(double degrees) {
     return degrees / 180.0 * M_PI;
@@ -35,69 +33,27 @@ void FlagDetector::img_callback(const sensor_msgs::ImageConstPtr& msg) {
     Rect roiNoSky(0, topCrop, src.cols, src.rows - topCrop);
     src = src(roiNoSky);
 
-    vector<Point> redFlagPoints;
-    vector<Point> blueFlagPoints;
-    cerr << "hi" << endl;
-    // Average red and blue values
-    int redAvg = 0;
-    int blueAvg = 0;
-    for (int i = 0; i < src.rows; i++) {
-        for (int j = 0; j < src.cols; j++) {
-            Vec3b currentPixel = src.at<Vec3b>(i, j);
-            redAvg += currentPixel[2];
-            blueAvg += currentPixel[0];
-        }
-    }
-    redAvg /= src.rows * src.cols;
-    blueAvg /= src.rows * src.cols;
-    cerr << to_string(redAvg) << endl;
-    cerr << to_string(blueAvg) << endl;
+    Mat src_binary = Mat::zeros(src.rows, src.cols, CV_8UC1);
     // Determine which points corresponds to red / blue flags.
-
-    for (int i = 0; i < src.cols; i += blockSize) {
-        for (int j = 0; j < src.rows; j += blockSize) {
-            int redSquareAvg = 0;
-            int blueSquareAvg = 0;
-            int greenSquareAvg = 0;
-            for (int k = i; k < i + blockSize && k < src.cols; k++) {
-                for (int l = j; l < j + blockSize && j < src.rows; l++) {
-                    Vec3b currentPixel = src.at<Vec3b>(l, k);
-                    blueSquareAvg += currentPixel[0];
-                    greenSquareAvg += currentPixel[1];
-                    redSquareAvg += currentPixel[2];
-                }
-            }
-            redSquareAvg /= blockSize * blockSize;
-            blueSquareAvg /= blockSize * blockSize;
-            greenSquareAvg /= blockSize * blockSize;
-
-            if (blueSquareAvg - blueDiff > greenSquareAvg && blueSquareAvg - blueDiff > redSquareAvg && blueSquareAvg - blueAvg > blueOffset) {
-                for (int k = i; k < i + blockSize && k < src.cols; k++) {
-                    for (int l = j; l < j + blockSize && j < src.rows; l++) {
-                        blueFlagPoints.push_back(Point(k, l));
-                        cerr << to_string(redSquareAvg) + " " + to_string(greenSquareAvg) + " " + to_string(blueSquareAvg) << endl;
-                        Vec3b currentPixel = src.at<Vec3b>(l, k);
-                        currentPixel[0] = 0;
-                        currentPixel[1] = 0;
-                        currentPixel[2] = 0;
-                        src.at<Vec3b>(l, k) = currentPixel;
-                    }
-                }
-            } else if (redSquareAvg - redDiff > blueSquareAvg && redSquareAvg - redDiff > greenSquareAvg && redSquareAvg - redAvg > redOffset) {
-                for (int k = i; k < i + blockSize && k < src.cols; k++) {
-                    for (int l = j; l < j + blockSize && j < src.rows; l++) {
-                        redFlagPoints.push_back(Point(k, l));
-                        cerr << to_string(redSquareAvg) + " " + to_string(greenSquareAvg) + " " + to_string(blueSquareAvg) << endl;
-                        Vec3b currentPixel = src.at<Vec3b>(l, k);
-                        currentPixel[0] = 255;
-                        currentPixel[1] = 255;
-                        currentPixel[2] = 255;
-                        src.at<Vec3b>(l, k) = currentPixel;
-                    }
-                }
+    for (int i = 0; i < src.cols; i++) {
+        for (int j = 0; j < src.rows; j++) {
+            Vec3b currentPixel = src.at<Vec3b>(j, i);
+            if ((currentPixel[0] - blueDiff > currentPixel[1] && currentPixel[0]- blueDiff > currentPixel[2])
+                    || (currentPixel[2] - redDiff > currentPixel[0] && currentPixel[2] - redDiff > currentPixel[1])) {
+            //if (8 * currentPixel[2] - 20* currentPixel[1] - 20 * currentPixel[0] > 0) {
+                cerr << to_string(currentPixel[2]) + " " + to_string(currentPixel[1]) + " " + to_string(currentPixel[0]) << endl;
+                currentPixel[0] = 0;
+                currentPixel[1] = 0;
+                currentPixel[2] = 0;
+                src.at<Vec3b>(j, i) = currentPixel;
+                src_binary.at<uchar>(j, i) = 1;
             }
         }
     }
+
+
+
+
 
     // Convert the contours to a pointcloud
     // cloud = toPointCloud(allContours, orig.rows, orig.cols);
