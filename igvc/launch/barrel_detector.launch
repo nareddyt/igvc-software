@@ -1,0 +1,4 @@
+<!-- barrel_detector.launch -->
+<launch>
+    <node name="barreldetector" pkg="igvc" type="barreldetector" output="screen"/>
+</launch>
