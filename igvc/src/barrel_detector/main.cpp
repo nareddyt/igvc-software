@@ -1,38 +1,14 @@
-#include <cmath>
-#include <pcl_ros/point_cloud.h>
-#include <tf/tf.h>
-#include <tf/transform_listener.h>
+#include "barreldetector.h"
 
-using namespace pcl;
-using namespace ros;
-using namespace std;
+int main(int argc, char** argv)
+{
+    ros::init(argc, argv, "barreldetector");
 
-Publisher _pointcloud_pub;
-tf::TransformListener *tf_listener;
-set<string> frames_seen;
+    ros::NodeHandle nh;
 
-void frame_callback(const PointCloud<PointXYZ>::ConstPtr &msg, const string &topic) {
-    PointCloud<PointXYZ> transformed;
-    tf::StampedTransform transform;
+    BarrelDetector det{nh};
 
-    // TODO
-
-    _pointcloud_pub.publish(transformed);
-}
-
-int main(int argc, char** argv) {
-    // FIXME
-    init(argc, argv, "barreldetector");
-
-    NodeHandle nh;
-
-    PotholeDetector det{nh};
-
-    tf_listener = new tf::TransformListener();
-    _pointcloud_pub = nh.advertise<PointCloud<PointXYZ>>("/barrel/blackout_image", 1);
-
-    Subscriber scan_sub = nh.subscribe("/scan/pointcloud", 1, frame_callback);
-    spin();
+    ros::spin();
 
     return 0;
 }
