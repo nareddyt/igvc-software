@@ -16,8 +16,11 @@ cv_bridge::CvImagePtr cv_ptr;
 typedef pcl::PointCloud<pcl::PointXYZ> PCLCloud;
 
 // Offsets for red and blue flag detections
-const int redDiff = 50;
-const int blueDiff = 100;
+const int redDiff = 35;
+const int blueDiff = 70;
+// Bounds for contours
+const unsigned int minLength = 30;
+const unsigned int maxLength = 120;
 
 double toRadians(double degrees) {
     return degrees / 180.0 * M_PI;
@@ -40,23 +43,63 @@ void FlagDetector::img_callback(const sensor_msgs::ImageConstPtr& msg) {
             Vec3b currentPixel = src.at<Vec3b>(j, i);
             if ((currentPixel[0] - blueDiff > currentPixel[1] && currentPixel[0]- blueDiff > currentPixel[2])
                     || (currentPixel[2] - redDiff > currentPixel[0] && currentPixel[2] - redDiff > currentPixel[1])) {
-            //if (8 * currentPixel[2] - 20* currentPixel[1] - 20 * currentPixel[0] > 0) {
-                cerr << to_string(currentPixel[2]) + " " + to_string(currentPixel[1]) + " " + to_string(currentPixel[0]) << endl;
-                currentPixel[0] = 0;
+                //cerr << to_string(currentPixel[2]) + " " + to_string(currentPixel[1]) + " " + to_string(currentPixel[0]) << endl;
+                src_binary.at<uchar>(j, i) = 1;
+                /*currentPixel[0] = 0;
                 currentPixel[1] = 0;
                 currentPixel[2] = 0;
-                src.at<Vec3b>(j, i) = currentPixel;
-                src_binary.at<uchar>(j, i) = 1;
+                src.at<Vec3b>(j, i) = currentPixel;*/
             }
         }
     }
-
+    // Identify contours in binary image
+    vector<vector<Point>> contours;
+    findContours(src_binary, contours, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
+    for (vector<vector<Point>>::iterator it = contours.begin(); it != contours.end(); ++it) {
+        int minY = src.rows;
+        int minX = src.cols;
+        int maxX = 0;
+        int maxY = 0;
+        // Finds center pixel of contour
+        for (Point p : *it) {
+            int x = p.x;
+            int y = p.y;
+            if (x > maxX) {
+                maxX = x;
+            }
+            if (x < minX) {
+                minX = x;
+            }
+            if (y > maxY) {
+                maxY = y;
+            }
+            if(y < minY) {
+                minY = y;
+            }
+        } 
+        int centerX = (minX + maxX) / 2;
+        int centerY = (minY + maxY) / 2;
+        //cerr << to_string(centerX) + " " + to_string(centerY) << endl;
+        Vec3b tempPix = src.at<Vec3b>(centerY,centerX);
+        if ((*it).size() < minLength + (double)(*it)[0].y / 460 * 270
+                || ((*it).size() > maxLength + (double)(*it)[0].y / 460 * 250
+                && !((tempPix[0] - blueDiff > tempPix[1] && tempPix[0]- blueDiff > tempPix[2])))
+                || src_binary.at<uchar>(centerY, centerX) == 0
+                || maxY - minY < 30) {
+            contours.erase(it);
+            --it;
+        } else {
+           cerr << "Contour size: " + to_string((*it).size()) << endl;
+           cerr << "Max length @ " + to_string((double)(*it)[0].y) + " is " + to_string(maxLength + (double)(*it)[0].y / 460 * 250);
+        }
+    }
+    drawContours(src, contours, -1, Scalar(20, 236, 27), 2, 8);
 
 
 
 
     // Convert the contours to a pointcloud
-    // cloud = toPointCloud(allContours, orig.rows, orig.cols);
+    cloud = toPointCloud(contours, orig.rows, orig.cols);
 
     cv_bridge::CvImage out_msg;
     out_msg.header   = msg->header;
@@ -66,7 +109,7 @@ void FlagDetector::img_callback(const sensor_msgs::ImageConstPtr& msg) {
     cv_ptr->image = src;
     _flag_filt_img.publish(cv_ptr->toImageMsg());
     _flag_thres.publish(out_msg.toImageMsg());
-    // _flag_cloud.publish(cloud);
+    _flag_cloud.publish(cloud);
 }
 
 FlagDetector::FlagDetector(ros::NodeHandle &handle)
