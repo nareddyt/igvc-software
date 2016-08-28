@@ -14,7 +14,7 @@ void joyCallback(const sensor_msgs::Joy::ConstPtr& msg)
 {
     double absoluteMaxVel, maxVel, maxVelIncr;
     nhp->param(string("absoluteMaxVel"), absoluteMaxVel, 1.0);
-    nhp->param(string("maxVel"), maxVel, 1.0);
+    nhp->param(string("maxVel"), maxVel, 1.6);
     nhp->param(string("maxVelIncr"), maxVelIncr, 0.1);
     
     if(msg->buttons[1])
@@ -29,7 +29,7 @@ void joyCallback(const sensor_msgs::Joy::ConstPtr& msg)
     int leftJoyAxis, rightJoyAxis;
     bool leftInverted, rightInverted;
     nhp->param(string("leftAxis"), leftJoyAxis, 1);
-    nhp->param(string("rightAxis"), rightJoyAxis, 3);
+    nhp->param(string("rightAxis"), rightJoyAxis, 4);
     nhp->param(string("leftInverted"), leftInverted, false);
     nhp->param(string("rightInverted"), rightInverted, false);
     

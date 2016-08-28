@@ -28,15 +28,15 @@ void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
         if(range > scanData.range_max || range < scanData.range_min)
             continue;
         // Too close
-        if(range < 0.75)
+        if(range < 0.4)
             range = scanData.range_max + 1;
         // Too far
-        else if(range > 4.0)
+        else if(range > 6.0)
             range = scanData.range_max + 1;
-        // No valid neighboors
+        // No valid neighbors
         else if((i == 0 || !rangeIsValid(scanData.ranges[i-1])) && (i == (scanData.ranges.size()-1) || !rangeIsValid(scanData.ranges[i+1])))
             range = scanData.range_max + 1;
-        // No close neighboors
+        // No close neighbors
         else if((i == 0 || abs(scanData.ranges[i-1] - range) > 0.2) && (i == (scanData.ranges.size()-1) || abs(scanData.ranges[i+1] - range) > 0.2))
             range = scanData.range_max + 1;
     }
@@ -47,7 +47,7 @@ void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 
     PointCloud<PointXYZ>::Ptr cloud_for_pub(new PointCloud<PointXYZ>());
     fromROSMsg(cloud, *cloud_for_pub);
-
+    cloud_for_pub->push_back(PointXYZ(-3,0,0));    //really solid non-hacky fix for some unknown error
     _pointcloud_pub.publish(*cloud_for_pub);
 }
 

@@ -1,8 +1,9 @@
 #include "igvcsearchproblem.h"
+#include <math.h>
 
 using namespace pcl;
 
-bool IGVCSearchProblem::isActionValid(SearchMove move, pcl::KdTreeFLANN<pcl::PointXYZ> &kdtree, SearchLocation start_state) 
+bool IGVCSearchProblem::isActionValid(SearchMove& move, pcl::KdTreeFLANN<pcl::PointXYZ> &kdtree, SearchLocation start_state) 
 {
 	auto deltat = move.DeltaT;
 	double current = 0.0;
@@ -10,12 +11,19 @@ bool IGVCSearchProblem::isActionValid(SearchMove move, pcl::KdTreeFLANN<pcl::Poi
 		current = current > deltat ? deltat : (current + maxODeltaT);
 		move.DeltaT = current;
     	SearchLocation result = getResult(start_state, move);
-		pcl::PointXYZ searchPoint(result.x , result.y ,0);
+    	double offsetToCenter = 0.33;
+		pcl::PointXYZ searchPoint(result.x + offsetToCenter * cos(result.theta), result.y + offsetToCenter * sin(result.theta), 0);
 		std::vector<int> pointIdxRadiusSearch;
    		std::vector<float> pointRadiusSquaredDistance;
 		int neighboorsCount = kdtree.nearestKSearch(searchPoint, 1, pointIdxRadiusSearch, pointRadiusSquaredDistance);
 		if(neighboorsCount > 0) {
-			if(pointRadiusSquaredDistance[0] <= Threshold) {
+		    double temp = pow(pointRadiusSquaredDistance[0],.5);
+		    if (temp < move.distToObs) {
+		    //cerr << "Temp: " << temp << endl;
+		        move.distToObs = temp;
+		        //cerr << "distToObs: " << move.distToObs << endl;
+		    }
+			if(move.distToObs <= Threshold) {
 				return false;
 			}
 		}
@@ -29,13 +37,11 @@ std::list<SearchMove> IGVCSearchProblem::getActions(SearchLocation state)
     std::list<SearchMove> acts;
 
     auto deltat = DeltaT(state.distTo(Start));
-
     if(Map == nullptr)
         return acts;
-
-    if(!Map->empty())
+    if(!Map->empty()){
         kdtree.setInputCloud(Map);
-
+    }
     double delta = DeltaOmega;
     double Wmin = MinimumOmega;
     double Wmax =  MaximumOmega;
@@ -70,7 +76,6 @@ std::list<SearchMove> IGVCSearchProblem::getActions(SearchLocation state)
             acts.push_back(move);
         }
     }
-
     return acts;
 }
 
